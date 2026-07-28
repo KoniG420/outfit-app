@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CATEGORIES, CategoryId } from '../../lib/categories';
-import { CategoryOverlay } from '../../lib/CategoryOverlay';
+import { CategoryOverlay } from '../../lib/categoryOverlay';
 import { db } from '../../lib/db';
 
 export default function Index() {

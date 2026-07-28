@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Dimensions } from 'react-native';
+import { Dimensions, Image, StyleSheet } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { CategoryId } from './categories';
 import { OVERLAY_IMAGES } from './overlayImages';
@@ -11,15 +11,14 @@ export function CategoryOverlay({ category }: { category: CategoryId | null }) {
   const image = OVERLAY_IMAGES[category];
 
   if (image) {
-    return (
+  return (
       <Image
         source={image}
         style={styles.overlayImage}
         resizeMode="contain"
-        pointerEvents="none"
       />
-    );
-  }
+  );
+}
 
   // Fallback for categories without custom art yet
   return (
