@@ -1,42 +1,14 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { File, Paths } from 'expo-file-system';
-import * as SQLite from 'expo-sqlite';
-import { useEffect, useRef, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const db = SQLite.openDatabaseSync('outfitapp.db');
-
-// Runs once when the app starts — creates the table if it doesn't exist yet
-db.execSync(`
-  CREATE TABLE IF NOT EXISTS clothing_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    uri TEXT NOT NULL,
-    createdAt TEXT NOT NULL
-  );
-`);
-
-type ClothingItem = {
-  id: number;
-  uri: string;
-  createdAt: string;
-};
+import { router } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { db } from '../../lib/db';
 
 export default function Index() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<string | null>(null);
-  const [items, setItems] = useState<ClothingItem[]>([]);
   const cameraRef = useRef<CameraView>(null);
-
-  const loadItems = () => {
-    const rows = db.getAllSync<ClothingItem>(
-      'SELECT * FROM clothing_items ORDER BY id DESC'
-    );
-    setItems(rows);
-  };
-
-  useEffect(() => {
-    loadItems();
-  }, []);
 
   if (!permission) {
     return <View />;
@@ -63,12 +35,10 @@ export default function Index() {
   const savePhoto = () => {
     if (!photo) return;
 
-    // Copy from the temporary camera cache into permanent app storage
     const sourceFile = new File(photo);
     const destFile = new File(Paths.document, `clothing_${Date.now()}.jpg`);
     sourceFile.copy(destFile);
 
-    // Record it in the database
     db.runSync(
       'INSERT INTO clothing_items (uri, createdAt) VALUES (?, ?)',
       destFile.uri,
@@ -76,7 +46,6 @@ export default function Index() {
     );
 
     setPhoto(null);
-    loadItems();
   };
 
   if (photo) {
@@ -101,12 +70,12 @@ export default function Index() {
       <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
         <View style={styles.captureButtonInner} />
       </TouchableOpacity>
-
-      <ScrollView horizontal style={styles.gallery} contentContainerStyle={{ gap: 8 }}>
-        {items.map((item) => (
-          <Image key={item.id} source={{ uri: item.uri }} style={styles.thumbnail} />
-        ))}
-      </ScrollView>
+      <TouchableOpacity
+        style={styles.galleryButton}
+        onPress={() => router.push('/gallery')}
+      >
+        <Text style={styles.buttonText}>Gallery</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -131,7 +100,7 @@ const styles = StyleSheet.create({
   buttonText: { fontWeight: 'bold' },
   captureButton: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 40,
     alignSelf: 'center',
     width: 70,
     height: 70,
@@ -146,17 +115,12 @@ const styles = StyleSheet.create({
     borderRadius: 27.5,
     backgroundColor: '#fff',
   },
-  gallery: {
+  galleryButton: {
     position: 'absolute',
-    bottom: 10,
-    left: 0,
-    right: 0,
-    maxHeight: 70,
-  },
-  thumbnail: {
-    width: 60,
-    height: 60,
+    top: 50,
+    right: 20,
+    backgroundColor: '#fff',
+    padding: 10,
     borderRadius: 8,
-    marginLeft: 8,
   },
 });
