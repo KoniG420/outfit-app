@@ -2,12 +2,15 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CATEGORIES, CategoryId } from '../../lib/categories';
+import { CategoryOverlay } from '../../lib/CategoryOverlay';
 import { db } from '../../lib/db';
 
 export default function Index() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   if (!permission) {
@@ -26,6 +29,10 @@ export default function Index() {
   }
 
   const takePhoto = async () => {
+    if (!selectedCategory) {
+      Alert.alert('Pick a category first', 'Select what kind of clothing this is before shooting.');
+      return;
+    }
     if (cameraRef.current) {
       const result = await cameraRef.current.takePictureAsync();
       if (result) setPhoto(result.uri);
@@ -33,15 +40,16 @@ export default function Index() {
   };
 
   const savePhoto = () => {
-    if (!photo) return;
+    if (!photo || !selectedCategory) return;
 
     const sourceFile = new File(photo);
     const destFile = new File(Paths.document, `clothing_${Date.now()}.jpg`);
     sourceFile.copy(destFile);
 
     db.runSync(
-      'INSERT INTO clothing_items (uri, createdAt) VALUES (?, ?)',
+      'INSERT INTO clothing_items (uri, category, createdAt) VALUES (?, ?, ?)',
       destFile.uri,
+      selectedCategory,
       new Date().toISOString()
     );
 
@@ -67,13 +75,39 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing="back" ref={cameraRef} />
+      <CategoryOverlay category={selectedCategory} />
+
+      <ScrollView
+        horizontal
+        style={styles.categoryBar}
+        contentContainerStyle={{ gap: 10, paddingHorizontal: 10 }}
+        showsHorizontalScrollIndicator={false}
+      >
+        {CATEGORIES.map((cat) => (
+          <TouchableOpacity
+            key={cat.id}
+            style={[
+              styles.categoryChip,
+              selectedCategory === cat.id && styles.categoryChipSelected,
+            ]}
+            onPress={() => setSelectedCategory(cat.id)}
+          >
+            <Text
+              style={[
+                styles.categoryChipText,
+                selectedCategory === cat.id && styles.categoryChipTextSelected,
+              ]}
+            >
+              {cat.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
       <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
         <View style={styles.captureButtonInner} />
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.galleryButton}
-        onPress={() => router.push('/gallery')}
-      >
+      <TouchableOpacity style={styles.galleryButton} onPress={() => router.push('/gallery')}>
         <Text style={styles.buttonText}>Gallery</Text>
       </TouchableOpacity>
     </View>
@@ -85,11 +119,7 @@ const styles = StyleSheet.create({
   message: { color: '#fff', textAlign: 'center', marginBottom: 20 },
   camera: { flex: 1 },
   preview: { flex: 1 },
-  previewButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-  },
+  previewButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 20 },
   button: {
     backgroundColor: '#fff',
     padding: 15,
@@ -109,12 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  captureButtonInner: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    backgroundColor: '#fff',
-  },
+  captureButtonInner: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#fff' },
   galleryButton: {
     position: 'absolute',
     top: 50,
@@ -123,4 +148,21 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
   },
+  categoryBar: {
+    position: 'absolute',
+    bottom: 130,
+    left: 0,
+    right: 0,
+  },
+  categoryChip: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  categoryChipSelected: {
+    backgroundColor: '#fff',
+  },
+  categoryChipText: { color: '#fff', fontWeight: '600' },
+  categoryChipTextSelected: { color: '#000' },
 });
