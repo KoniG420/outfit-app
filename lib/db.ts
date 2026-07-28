@@ -6,6 +6,7 @@ db.execSync(`
   CREATE TABLE IF NOT EXISTS clothing_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uri TEXT NOT NULL,
+    category TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
 `);
@@ -13,5 +14,6 @@ db.execSync(`
 export type ClothingItem = {
   id: number;
   uri: string;
+  category: string;
   createdAt: string;
 };
