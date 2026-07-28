@@ -1,5 +1,5 @@
 import { Dimensions, Image, StyleSheet } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { CategoryId } from './categories';
 import { OVERLAY_IMAGES } from './overlayImages';
 
@@ -10,17 +10,20 @@ export function CategoryOverlay({ category }: { category: CategoryId | null }) {
 
   const image = OVERLAY_IMAGES[category];
 
+  // If we have a custom image, show it
   if (image) {
-  return (
+    return (
       <Image
         source={image}
         style={styles.overlayImage}
         resizeMode="contain"
       />
-  );
-}
+    );
+  }
 
-  // Fallback for categories without custom art yet
+  // Fallback for categories without custom art yet - all white
+  const label = category.replace('-', ' ').toUpperCase();
+
   return (
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Rect
@@ -34,6 +37,17 @@ export function CategoryOverlay({ category }: { category: CategoryId | null }) {
         strokeDasharray="10,8"
         fill="rgba(255,255,255,0.05)"
       />
+      <SvgText
+        x={width / 2}
+        y={height / 2}
+        fontSize={24}
+        fill="white"
+        fontWeight="bold"
+        textAnchor="middle"
+        opacity={0.6}
+      >
+        {label}
+      </SvgText>
     </Svg>
   );
 }
