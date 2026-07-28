@@ -2,7 +2,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { removeBackground } from '../../lib/backgroundRemover';
 import { CATEGORIES, CategoryId } from '../../lib/categories';
 import { CategoryOverlay } from '../../lib/categoryOverlay';
 import { db } from '../../lib/db';
@@ -11,6 +12,8 @@ export default function Index() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedPhoto, setProcessedPhoto] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   if (!permission) {
@@ -35,15 +38,29 @@ export default function Index() {
     }
     if (cameraRef.current) {
       const result = await cameraRef.current.takePictureAsync();
-      if (result) setPhoto(result.uri);
+      if (result) {
+        setPhoto(result.uri);
+        // Start background removal automatically
+        setIsProcessing(true);
+        try {
+          const removedBg = await removeBackground(result.uri);
+          setProcessedPhoto(removedBg);
+        } catch (error) {
+          console.error('Background removal error:', error);
+          // Fallback to original photo
+          setProcessedPhoto(result.uri);
+        } finally {
+          setIsProcessing(false);
+        }
+      }
     }
   };
 
   const savePhoto = () => {
-    if (!photo || !selectedCategory) return;
+    if (!processedPhoto || !selectedCategory) return;
 
-    const sourceFile = new File(photo);
-    const destFile = new File(Paths.document, `clothing_${Date.now()}.jpg`);
+    const sourceFile = new File(processedPhoto);
+    const destFile = new File(Paths.document, `clothing_${Date.now()}.png`);
     sourceFile.copy(destFile);
 
     db.runSync(
@@ -54,17 +71,41 @@ export default function Index() {
     );
 
     setPhoto(null);
+    setProcessedPhoto(null);
+    Alert.alert('Saved!', 'Your clothing item has been saved with background removed.');
   };
 
-  if (photo) {
+  // Show processing state while background is being removed
+  if (photo && isProcessing) {
     return (
       <View style={styles.container}>
         <Image source={{ uri: photo }} style={styles.preview} />
+        <View style={styles.processingOverlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.processingText}>Removing background...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show preview with background removed
+  if (photo && processedPhoto) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.previewContainer}>
+          <Image source={{ uri: processedPhoto }} style={styles.preview} resizeMode="contain" />
+          <View style={styles.previewBadge}>
+            <Text style={styles.previewBadgeText}>✨ Background Removed</Text>
+          </View>
+        </View>
         <View style={styles.previewButtons}>
-          <TouchableOpacity style={styles.button} onPress={() => setPhoto(null)}>
+          <TouchableOpacity style={styles.button} onPress={() => {
+            setPhoto(null);
+            setProcessedPhoto(null);
+          }}>
             <Text style={styles.buttonText}>Retake</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={savePhoto}>
+          <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={savePhoto}>
             <Text style={styles.buttonText}>Save</Text>
           </TouchableOpacity>
         </View>
@@ -118,14 +159,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
   message: { color: '#fff', textAlign: 'center', marginBottom: 20 },
   camera: { flex: 1 },
-  preview: { flex: 1 },
-  previewButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 20 },
+  previewContainer: { flex: 1, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
+  preview: { width: '100%', height: '90%' },
+  previewBadge: {
+    position: 'absolute',
+    top: 20,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  previewBadgeText: { color: '#fff', fontWeight: 'bold' },
+  previewButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 20, backgroundColor: '#000' },
   button: {
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     minWidth: 100,
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
   },
   buttonText: { fontWeight: 'bold' },
   captureButton: {
@@ -165,4 +220,20 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { color: '#fff', fontWeight: '600' },
   categoryChipTextSelected: { color: '#000' },
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  processingText: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 20,
+    fontWeight: '600',
+  },
 });
