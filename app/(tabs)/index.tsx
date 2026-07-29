@@ -114,7 +114,7 @@ export default function Index() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} collapsable={false}>
       <CameraView style={styles.camera} facing="back" ref={cameraRef} />
       <CategoryOverlay category={selectedCategory} />
 
@@ -150,6 +150,9 @@ export default function Index() {
       </TouchableOpacity>
       <TouchableOpacity style={styles.galleryButton} onPress={() => router.push('/gallery')}>
         <Text style={styles.buttonText}>Gallery</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.galleryButton, { top: 100 }]} onPress={() => router.push('/fit-maker')}>
+        <Text style={styles.buttonText}>Fit Maker</Text>
       </TouchableOpacity>
     </View>
   );
