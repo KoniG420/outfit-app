@@ -1,17 +1,17 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { CATEGORIES, CategoryId } from '../lib/categories';
 import { ClothingItem, db } from '../lib/db';
@@ -25,6 +25,9 @@ export default function Gallery() {
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryId | null>(null);
+
+  // NEW: separate state for the tap-to-enlarge preview
+  const [viewingItem, setViewingItem] = useState<ClothingItem | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,17 +47,15 @@ export default function Gallery() {
   const handleSave = () => {
     if (!selectedItem || !editCategory) return;
 
-    // Update the category in the database
     db.runSync(
       'UPDATE clothing_items SET category = ? WHERE id = ?',
       editCategory,
       selectedItem.id
     );
 
-    // Update local state
-    setItems(prevItems => 
-      prevItems.map(item => 
-        item.id === selectedItem.id 
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === selectedItem.id
           ? { ...item, category: editCategory }
           : item
       )
@@ -72,8 +73,8 @@ export default function Gallery() {
       'Are you sure you want to delete this item?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: () => {
             db.runSync('DELETE FROM clothing_items WHERE id = ?', selectedItem.id);
@@ -94,6 +95,7 @@ export default function Gallery() {
         numColumns={numColumns}
         renderItem={({ item }) => (
           <Pressable
+            onPress={() => setViewingItem(item)}
             onLongPress={() => handleLongPress(item)}
             delayLongPress={500}
           >
@@ -102,7 +104,28 @@ export default function Gallery() {
         )}
       />
 
-      {/* Edit Modal */}
+      {/* NEW: Tap-to-enlarge preview modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={!!viewingItem}
+        onRequestClose={() => setViewingItem(null)}
+      >
+        <Pressable
+          style={styles.previewOverlay}
+          onPress={() => setViewingItem(null)}
+        >
+          {viewingItem && (
+            <Image
+              source={{ uri: viewingItem.uri }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
+        </Pressable>
+      </Modal>
+
+      {/* Edit Modal (unchanged, still long-press) */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -112,17 +135,15 @@ export default function Gallery() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Item</Text>
-            
-            {/* Image Preview */}
+
             {selectedItem && (
-              <Image 
-                source={{ uri: selectedItem.uri }} 
-                style={styles.modalImage} 
+              <Image
+                source={{ uri: selectedItem.uri }}
+                style={styles.modalImage}
                 resizeMode="contain"
               />
             )}
 
-            {/* Current Category Display */}
             <View style={styles.fieldContainer}>
               <Text style={styles.fieldLabel}>Current Category</Text>
               <View style={styles.currentCategoryBadge}>
@@ -132,7 +153,6 @@ export default function Gallery() {
               </View>
             </View>
 
-            {/* Category Selector */}
             <View style={styles.fieldContainer}>
               <Text style={styles.fieldLabel}>Change to:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -160,18 +180,17 @@ export default function Gallery() {
               </ScrollView>
             </View>
 
-            {/* Action Buttons */}
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.deleteButton]} 
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleDelete}
               >
                 <Text style={styles.buttonText}>Delete</Text>
               </TouchableOpacity>
-              
+
               <View style={styles.modalRightButtons}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.cancelButton]} 
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
                   onPress={() => {
                     setModalVisible(false);
                     setSelectedItem(null);
@@ -179,9 +198,9 @@ export default function Gallery() {
                 >
                   <Text style={styles.buttonText}>Cancel</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.saveButton]} 
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
                   onPress={handleSave}
                 >
                   <Text style={styles.buttonText}>Save</Text>
@@ -202,6 +221,17 @@ const styles = StyleSheet.create({
     height: itemSize,
     borderWidth: 1,
     borderColor: '#000',
+  },
+  // NEW: preview modal styles
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '90%',
+    height: '80%',
   },
   modalOverlay: {
     flex: 1,
